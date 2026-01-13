@@ -60,7 +60,7 @@ The project runs as **two services**:
 * Confirms incoming payments
 * Updates payment status
 
-⚠️ Both services **must be running** for the full flow to work.
+ Both services **must be running** for the full flow to work.
 
 
 ## Setup Instructions
@@ -198,7 +198,7 @@ These allow downstream systems to react in real time.
 
 Full API documentation is available at:
 
-👉 **[https://docs.celar.io/](https://docs.celar.io/)**
+ **[https://docs.celar.io/](https://docs.celar.io/)**
 
 
 ## Hackathon Functionality Requirements
