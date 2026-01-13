@@ -17,7 +17,7 @@ Celar provides:
 
 The goal is to show that **MNEE behaves like a first-class payment asset**
 
-## How MNEE Is Used (Important)
+## How MNEE Is Used
 
 In this project
 
@@ -45,7 +45,7 @@ This demonstrates how MNEE can be integrated into an existing payment stack.
 
 Availability depends on environment configuration.
 
-## Project Architecture (High Level)
+## Project Architecture
 
 The project runs as **two services**:
 
@@ -124,7 +124,7 @@ Full API documentation is available at:
 👉 **[https://docs.celar.io/](https://docs.celar.io/)**
 
 
-## Functionality Requirement (Judging)
+## Functionality Requirement
 
 This project:
 
