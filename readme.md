@@ -1,10 +1,18 @@
-# Celar — Multichain Payment Orchestration
+# Celar — Stablecoin Payment Orchestration on Mantle
 
-*MNEE Hackathon Submission*
+*Mantle Global Hackathon 2025 Submission*
 
-Celar is a **multichain payment orchestration backend** designed for platforms and Developers to accept stablecoin payments, route them across chains, and track payment state changes in real time.
+Celar is a **payment orchestration backend** that enables platforms, PSPs, and businesses to accept stablecoin payments, route them on-chain, and track payment lifecycle events in real time.
 
-This submission demonstrates MNEE in a real pay-in flow, operating alongside USDC and USDT using the same routing, monitoring, and settlement infrastructure.
+This submission demonstrates **real-world payment flows executed on the Mantle Network**, using Mantle as the primary execution environment for routing, transfer detection, and settlement.
+
+Celar focuses on **RealFi use cases** — real businesses, real payments, and compliant infrastructure — while providing **developer-grade tooling** for integrating stablecoin payments into production systems.
+
+
+## Track Alignment
+
+* **RWA / RealFi** — real stablecoin payments, real settlement, real business use cases
+* **Infrastructure & Tooling** — Developer tooling enabling developers to intergrate stablecoin payments easily
 
 ## What This Project Does
 
@@ -13,35 +21,35 @@ Celar provides the following core capabilities:
 * **PSP onboarding API**
 * **Merchant management API**
 * **Pay-in API** for stablecoin payments
-* **Automatic route selection** across supported chains (`chain = best`)
+* **Chain-based routing** (Mantle used in this demo)
 * **Deterministic intermediary wallet generation** per payment
-* **On-chain listener service** for transfer detection
-* **Webhook events** for payment lifecycle updates
+* **On-chain listener service** monitoring Mantle blocks
+* **Real-time webhook events** for payment lifecycle updates
+* **Operational dashboard** for observing payment states
+
+This allows platforms to integrate stablecoin payments without directly managing wallets, chain logic, or on-chain monitoring.
 
 
-## How MNEE Is Used
+## How Mantle Is Used
 
 In this project:
 
-* **MNEE** can be selected as the `currency` when initiating a pay-in.
-* The platform then:
+* **Mantle Network is the execution chain used in the demo**
+* Stablecoin transfers are **initiated, detected, and confirmed on Mantle**
+* The listener service actively:
 
-  * resolves the correct MNEE token contract
-  * generates a unique intermediary wallet for the payment
-  * monitors the chain for an incoming MNEE transfer
-  * updates payment state once funds are received and confirmed
+  * monitors Mantle RPC endpoints
+  * scans Mantle blocks for ERC-20 transfers
+  * validates payment amount and currency
+* Payment state transitions are driven by **on-chain activity on Mantle**
+
+Mantle’s low fees and EVM compatibility make it suitable for high-volume, real-world payment flows.
 
 ## Supported Chains & Tokens
 
-| Chain    | Supported Tokens |
-| -------- | ---------------- |
-| Ethereum | MNEE             |
-| Base     | USDC, USDT       |
-| Polygon  | USDC, USDT       |
-| Arbitrum | USDC, USDT       |
-| Testnets | USDC, USDT       |
-
-> Availability depends on environment configuration and network setup.
+| Network | Supported Tokens |
+| ------- | ---------------- |
+| Mantle  | USDC, USDT       |
 
 ## Project Architecture
 
@@ -51,23 +59,24 @@ Celar runs as **two cooperating services**, both required for end-to-end operati
 
 Responsible for:
 
-* PSP registration
-* Merchant management
+* PSP registration and API key issuance
+* Merchant and customer management
 * Pay-in initiation
 * Chain and token resolution
 * Intermediary wallet generation
-* Webhook emission
+* Webhook configuration and emission
 
 ### Listener Service
 
 Responsible for:
 
-* Monitoring supported blockchains
-* Detecting incoming token transfers
+* Monitoring Mantle blocks
+* Detecting incoming ERC-20 transfers
+* Validating amount and currency
 * Confirming payments
-* Updating payment state
+* Updating payment state in the system
 
-> Both services **must be running** for the full payment flow to function correctly.
+> Both services must be running for the full payment flow to function.
 
 
 ## Setup Instructions
@@ -86,12 +95,13 @@ Create an environment file:
 cp .env.example .env
 ```
 
-Populate all required variables, including:
+Populate required variables, including:
 
-* RPC URLs
-* Token contract addresses
+* Mantle RPC URL
+* Token contract addresses (USDC / USDT on Mantle)
 * Webhook secrets
-* Chain configuration values
+* Database configuration
+
 
 ### 3. Start the Services
 
@@ -110,17 +120,17 @@ npm run dev:listener
 
 ## How to Test the Full Pay-In Flow
 
-1. Create an account on the dashboard:
+1. Open the dashboard:
    **[https://dashboard.celar.io](https://dashboard.celar.io)**
 
-2. Select the **PSP onboarding flow** during KYC.
-   (For the hackathon environment, approval is automatic.)
+2. Complete the **PSP onboarding flow**
+   (For hackathon purposes, approval is automatic.)
 
 3. Create a **customer** and copy the `customer_id`.
 
-4. Create an **internal Celar wallet** for receiving a pay-in.
+4. Create an internal Celar wallet for receiving a pay-in.
 
-5. Generate an **API key** and configure a **webhook URL** in settings.
+5. Generate an **API key** and configure a **webhook URL**.
 
 6. Initiate a pay-in using the API:
    **[https://docs.celar.io/api#/operations/create_payin](https://docs.celar.io/api#/operations/create_payin)**
@@ -130,54 +140,57 @@ npm run dev:listener
    * `payment_id`
    * `intermediary_wallet`
    * `token_address`
+   * `chain` (Mantle)
 
-8. Send the specified MNEE token to the intermediary wallet.
+8. Send the specified stablecoin (USDC or USDT) on **Mantle** to the intermediary wallet.
 
-9. Wait for confirmation. Once processed, the payment state updates automatically.
-
+9. The listener detects the transfer and confirms the payment automatically.
 
 ## What Happens Internally
 
 1. The API:
 
-   * resolves chain and token metadata
+   * resolves Mantle chain metadata
    * generates a deterministic intermediary wallet
    * stores routing context
+
 2. The listener:
 
-   * detects the on-chain transfer
-   * validates amount and currency
+   * monitors Mantle blocks
+   * detects the ERC-20 transfer
+   * validates amount and token
    * confirms the payment
-3. Webhooks (if configured) emit lifecycle events in real time.
+
+3. Webhooks emit lifecycle events in real time.
 
 
 ## Webhooks
 
-If a webhook URL is configured for the PSP, Celar emits events such as:
+If configured, Celar emits events such as:
 
 * `payin.confirmed`
 * `payin.settled`
 * `payin.failed`
 * `payin.mismatched`
 
-These allow downstream systems to react programmatically to payment state changes.
+These allow downstream systems to react programmatically to payment events.
 
 
-## Documentation
+## Demo & Documentation
 
-Full API documentation is available at:
-
-**[https://docs.celar.io/](https://docs.celar.io/)**
+* **Dashboard:** [https://dashboard.sandbox.celar.io](https://dashboard.sandbox.celar.io/)
+* **API Docs:** [https://docs.celar.io](https://docs.celar.io)
+* **Demo Video:** Provided in submission
 
 ## Hackathon Requirements
 
 This submission:
 
-* installs using the provided instructions
-* runs reliably in the intended environment
-* functions as described in this README
-* demonstrates **practical MNEE usage in a real payment flow**
-* matches the behavior shown in the demo video
+* Includes a working MVP running on Mantle
+* Demonstrates real on-chain payment execution
+* Provides clear setup and testing instructions
+* Matches the behavior shown in the demo
+* Aligns with Mantle’s focus on RealFi and scalable infrastructure
 
 ## License
 
