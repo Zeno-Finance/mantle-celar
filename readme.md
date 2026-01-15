@@ -2,17 +2,17 @@
 
 *Mantle Global Hackathon 2025 Submission*
 
-Celar is a **payment orchestration backend** that enables platforms, PSPs, and businesses to accept stablecoin payments, route them on-chain, and track payment lifecycle events in real time.
+Celar is a **payment orchestration backend** that enables Developers and businesses to accept stablecoin payments, route them on-chain, and track payment lifecycle events in real time.
 
 This submission demonstrates **real-world payment flows executed on the Mantle Network**, using Mantle as the primary execution environment for routing, transfer detection, and settlement.
 
-Celar focuses on **RealFi use cases** — real businesses, real payments, and compliant infrastructure — while providing **developer-grade tooling** for integrating stablecoin payments into production systems.
+Celar focuses on RealFi use cases — real businesses, real payments, and compliant infrastructure, while providing developer-grade tooling for integrating stablecoin payments into production systems.
 
 
 ## Track Alignment
 
 * **RWA / RealFi** — real stablecoin payments, real settlement, real business use cases
-* **Infrastructure & Tooling** — Developer tooling enabling developers to intergrate stablecoin payments easily
+* **Infrastructure & Tooling** — Developer tooling enabling developers to intergrate stablecoin payments easily.
 
 ## What This Project Does
 
@@ -27,21 +27,19 @@ Celar provides the following core capabilities:
 * **Real-time webhook events** for payment lifecycle updates
 * **Operational dashboard** for observing payment states
 
-This allows platforms to integrate stablecoin payments without directly managing wallets, chain logic, or on-chain monitoring.
-
 
 ## How Mantle Is Used
 
 In this project:
 
 * **Mantle Network is the execution chain used in the demo**
-* Stablecoin transfers are **initiated, detected, and confirmed on Mantle**
+* Stablecoin transfers are initiated, detected, and confirmed on Mantle
 * The listener service actively:
 
   * monitors Mantle RPC endpoints
   * scans Mantle blocks for ERC-20 transfers
   * validates payment amount and currency
-* Payment state transitions are driven by **on-chain activity on Mantle**
+* Payment state transitions are driven by on-chain activity on Mantle.
 
 Mantle’s low fees and EVM compatibility make it suitable for high-volume, real-world payment flows.
 
@@ -117,16 +115,21 @@ Run the listener service in a separate terminal:
 npm run dev:listener
 ```
 
+### ⚠️ Important Note on Testing
+> The steps below use Celar’s hosted API environment.
+> By following this method, you are running the full pay-in flow against the live hosted backend, including routing, smart wallet generation, on-chain listening, and settlement logic.
+>
+> No local services are required to test this flow.
 
 ## How to Test the Full Pay-In Flow
 
 1. Open the dashboard:
-   **[https://dashboard.celar.io](https://dashboard.celar.io)**
+   **[https://dashboard.sandbox.celar.io](https://dashboard.sandbox.celar.io)**
 
 2. Complete the **PSP onboarding flow**
    (For hackathon purposes, approval is automatic.)
 
-3. Create a **customer** and copy the `customer_id`.
+3. Create a customer and copy the `customer_id`.
 
 4. Create an internal Celar wallet for receiving a pay-in.
 
@@ -142,7 +145,7 @@ npm run dev:listener
    * `token_address`
    * `chain` (Mantle)
 
-8. Send the specified stablecoin (USDC or USDT) on **Mantle** to the intermediary wallet.
+8. Send the specified stablecoin (USDC or USDT) on Mantle to the intermediary wallet.
 
 9. The listener detects the transfer and confirms the payment automatically.
 
