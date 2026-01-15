@@ -6,13 +6,13 @@ import { checkRpcHealth, estimateAvgBlockTime, estimateFeeUSD } from "./adapterU
 import { DUMMY_TO } from "../utils/constants.ts";
 import { getTokenForChain } from "./tokens.ts";
 
-const provider = new JsonRpcProvider(SUPPORTED_CHAINS.polygon.rpcUrl);
+const provider = new JsonRpcProvider(SUPPORTED_CHAINS.mantleSepolia.rpcUrl);
 
-export const polygonAdapter: ChainAdapter = {
+export const mantleAdapter: ChainAdapter = {
   async getEstimatedFee(amount, currency: ValidTokenSymbol) {
-    const cfg = SUPPORTED_CHAINS.polygon;
+    const cfg = SUPPORTED_CHAINS.mantleSepolia;
 
-    const token = getTokenForChain("polygon", cfg, currency);
+    const token = getTokenForChain("mantleSepolia", cfg, currency);
 
     const tokenContract = new Contract(token, erc20Abi, provider);
     const decimals: number = await tokenContract.decimals();
@@ -23,7 +23,8 @@ export const polygonAdapter: ChainAdapter = {
       intermediaryWallet: cfg.intermediaryWallet ?? DUMMY_TO,
       priceFeedAddress: cfg.priceFeedAddress!,
       currencyDecimals: decimals,
-      fallbackGasLimit: 60_000n
+      fallbackGasLimit: 60_000n,
+      fallbackGasApi: "https://explorer.mantle.xyz/api/v1/gas-price-oracle",
     });
   },
 
@@ -40,7 +41,7 @@ export const polygonAdapter: ChainAdapter = {
   },
 
   getConfig() {
-    const cfg = SUPPORTED_CHAINS.polygon;
+    const cfg = SUPPORTED_CHAINS.mantleSepolia;
     return {
       usdcAddress: cfg.usdcAddress,
       usdtAddress: cfg.usdtAddress,

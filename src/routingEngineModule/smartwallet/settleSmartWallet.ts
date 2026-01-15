@@ -5,8 +5,10 @@ import { getChainAdapter } from "../adapters/index.ts";
 import { SUPPORTED_CHAINS } from "../utils/chains.ts";
 import dotenv from "dotenv";
 import { privateKeyToAccount } from "viem/accounts";
-import { createBicoPaymasterClient, createNexusClient, DEFAULT_MEE_VERSION, getMEEVersion, toNexusAccount } from "@biconomy/abstractjs";
-import { baseSepolia, polygonAmoy, arbitrumSepolia, mainnet } from "viem/chains";
+import { createBicoPaymasterClient, createNexusClient, DEFAULT_MEE_VERSION, getMEEVersion, NexusAccount as RARA, toNexusAccount } from "@biconomy/abstractjs";
+import { baseSepolia, arbitrumSepolia, mainnet, mantleSepoliaTestnet } from "viem/chains";
+import { NexusAccount, NexusClient, UserOpCall } from "../utils/utils.ts";
+import { createSmartAccountClient, PaymasterMode } from "@biconomy/account";
 
 dotenv.config();
 
@@ -16,48 +18,143 @@ const owner = privateKeyToAccount(privateKey as `0x${string}`);
 // URLs and Chain Mapping
 const BUNDLER_URLS: Record<Chain, string> = {
   base: process.env.BASE_BICONOMY_BUNDLER_URL!,
-  polygon: process.env.POLYGON_BICONOMY_BUNDLER_URL!,
   arbitrum: process.env.ARBITRUM_BICONOMY_BUNDLER_URL!,
-  ethereum: process.env.ETHEREUM_BICONOMY_BUNDLER_URL!
+  ethereum: process.env.ETHEREUM_BICONOMY_BUNDLER_URL!,
+  mantleSepolia: process.env.MANTLE_SEPOLIA_BICONOMY_BUNDLER_URL!,
 };
 
 const PAYMASTER_URLS: Record<Chain, string> = {
   base: process.env.BASE_BICONOMY_PAYMASTER_URL!,
-  polygon: process.env.POLYGON_BICONOMY_PAYMASTER_URL!,
   arbitrum: process.env.ARBITRUM_BICONOMY_PAYMASTER_URL!,
-  ethereum: process.env.ETHEREUM_BICONOMY_PAYMASTER_URL!
+  ethereum: process.env.ETHEREUM_BICONOMY_PAYMASTER_URL!,
+  mantleSepolia: process.env.MANTLE_SEPOLIA_BICONOMY_API_KEY!,
 };
 
 const CHAIN_OBJECTS: Record<Chain, any> = {
   base: baseSepolia,
-  polygon: polygonAmoy,
   arbitrum: arbitrumSepolia,
   ethereum: mainnet,
+  mantleSepolia: mantleSepoliaTestnet
 };
-export async function generateKernelWallet(paymentId: string, chain: Chain) {
-  const saltIndex = BigInt("0x" + Buffer.from(paymentId).toString("hex").slice(0, 16));
 
-  const nexusAccount = await toNexusAccount({
+export const saltToLegacyIndex = (salt: bigint): number => {
+  return Number(salt & 0xffffffffn);
+};
+
+export async function createNexusAccount({
+  paymentId,
+  chain,
+}: {
+  paymentId: string;
+  chain: keyof typeof SUPPORTED_CHAINS;
+}) {
+  const cfg = SUPPORTED_CHAINS[chain];
+
+ const saltIndex = BigInt("0x" + Buffer.from(paymentId).toString("hex").slice(0, 16));
+
+  // Mantle special case
+  if (chain === "mantleSepolia") {
+    const numericIndex = saltToLegacyIndex(saltIndex);
+
+    const smartWallet = await createSmartAccountClient({
       signer: owner,
-      chainConfiguration: {
-        chain: CHAIN_OBJECTS[chain],
-        transport: http(),
-        version: getMEEVersion(DEFAULT_MEE_VERSION),
-      },
-      index: saltIndex,
+      bundlerUrl: BUNDLER_URLS.mantleSepolia,
+      biconomyPaymasterApiKey: PAYMASTER_URLS.mantleSepolia,
+      rpcUrl: cfg.rpcUrl,
+      chainId: cfg.chainId,
+      index: numericIndex,
     });
 
-  const nexusClient = createNexusClient({
-    account: nexusAccount,
-    transport: http(BUNDLER_URLS[chain]),
+    const address = await smartWallet.getAccountAddress();
+
+    return {
+      address,
+      smartClient: smartWallet,
+    };
+  }
+
+  // All other chains
+  const nexusAccount = await toNexusAccount({
+    signer: owner,
+    chainConfiguration: {
+      chain: CHAIN_OBJECTS[chain],
+      transport: http(cfg.rpcUrl),
+      version: getMEEVersion(DEFAULT_MEE_VERSION),
+    },
+    index: saltIndex,
   });
 
-  return nexusClient.account.address;
+  return nexusAccount;
 }
+
+
+
+export async function executeUserOp(
+  calls: UserOpCall[],
+  nexusAccount: NexusAccount | null,
+  nexusClient: NexusClient
+): Promise<{
+  txHash: string;
+  receipt: {
+  transactionHash?: `0x${string}`;
+  blockNumber?: bigint | number;
+  status?: boolean | "success" | "reverted" | "0x1";
+  success?: boolean;
+  logs: any[];
+  };
+}> {
+
+//mantleSepolia uses old Biconomy library and not nexus
+  if (nexusAccount?.smartClient)
+{
+    console.log("Executing via Biconomy old Smart Account Client");
+    const txs = calls.map((c) => ({
+      to: c.to,
+      data: c.data,
+    }));
+
+    const userOp = await nexusAccount.smartClient.sendTransaction(txs, {
+      paymasterServiceData: { mode: PaymasterMode.SPONSORED },
+    });
+
+    const { transactionHash } = await userOp.waitForTxHash();
+    const result = await userOp.wait();
+
+    return {
+      txHash: transactionHash,
+      receipt: result.receipt,
+    };
+}
+
+  // CASE 2 — Nexus/AbstractJS execution
+  console.log("Executing via Biconomy Nexus new Client");
+  const hash = await nexusClient.sendUserOperation({ calls });
+  const receipt = await nexusClient.waitForUserOperationReceipt({ hash });
+
+  // console.log ('hash',hash, 'receipt', receipt )
+
+  return {
+    txHash: receipt.receipt.transactionHash,
+    receipt: receipt.receipt,
+  };
+}
+
+export async function generateKernelWallet(
+  paymentId: string,
+  chain: keyof typeof SUPPORTED_CHAINS
+): Promise<string> {
+  const res = await createNexusAccount({
+    paymentId,
+    chain,
+  });
+
+  return res?.address as string;
+}
+
 
 export async function settleSmartWalletPayment({
   id,
-  intermediary_wallet,
+  // intermediary_wallet,
   token_address,
   chain,
   amount,
@@ -75,22 +172,18 @@ export async function settleSmartWalletPayment({
 
   const TREASURY_WALLET = SUPPORTED_CHAINS[chain].treasuryWallet as `0x${string}`;
 
-   const nexusAccount = await toNexusAccount({
-      signer: owner,
-      chainConfiguration: {
-        chain: CHAIN_OBJECTS[chain],
-        transport: http(),
-        version: getMEEVersion(DEFAULT_MEE_VERSION),
-      },
-      index: saltIndex,
-    });
-  console.log(`[🔐] Smart Account Address:`, nexusAccount.address);
+    const nexusAccount = (await createNexusAccount({
+      paymentId: id,
+      chain,
+    })) as RARA;
 
-  const nexusClient = createNexusClient({
-    account: nexusAccount,
-    transport: http(BUNDLER_URLS[chain]),
-    paymaster: createBicoPaymasterClient({ paymasterUrl: PAYMASTER_URLS[chain] }),
-  });
+    const nexusClient = createNexusClient({
+      account: nexusAccount,
+      transport: http(BUNDLER_URLS[chain]),
+      paymaster: createBicoPaymasterClient({
+        paymasterUrl: PAYMASTER_URLS[chain]
+      }),
+    });
   console.log(`[🔌] Nexus client setup complete with bundler & paymaster`);
 
   const calls = [
@@ -119,18 +212,24 @@ export async function settleSmartWalletPayment({
     console.log(`  [#${i + 1}] To: ${call.to}, Value: ${call.value}, Data length: ${call.data.length}`);
   });
 
-  const hash = await nexusClient.sendUserOperation({ calls });
-  console.log(`[📨] UserOperation submitted. Hash: ${hash}`);
+  // const hash = await nexusClient.sendUserOperation({ calls });
+  // console.log(`[📨] UserOperation submitted. Hash: ${hash}`);
 
-  const receipt = await nexusClient.waitForUserOperationReceipt({ hash });
-  console.log(`[✅ CONFIRMED] Tx confirmed. UserOp Receipt:`, receipt.receipt.transactionHash, `(${receipt.receipt.status ? "Success" : "Failed"})`);
+  // const receipt = await nexusClient.waitForUserOperationReceipt({ hash });
+  // console.log(`[✅ CONFIRMED] Tx confirmed. UserOp Receipt:`, receipt.receipt.transactionHash, `(${receipt.receipt.status ? "Success" : "Failed"})`);
+
+  const { txHash, receipt } = await executeUserOp(
+      calls,
+      nexusAccount,
+      nexusClient
+    );
 
   const transferEvent = getAbiItem({ abi: erc20Abi, name: "Transfer" });
   
   // Decode logs from receipt
   const decodedLogs = parseEventLogs({
     abi: [transferEvent],
-    logs: receipt.receipt.logs,
+    logs: receipt.logs,
   });
 
   console.log(`[🪵] Decoded ${decodedLogs.length} logs`);
@@ -151,7 +250,7 @@ export async function settleSmartWalletPayment({
     if (to === TREASURY_WALLET.toLowerCase()) treasuryTransferFound = true;
   }
 
-   // ✅ Better logging
+   // Better logging
    if (!pspTransferFound || !treasuryTransferFound) {
     console.warn(`[⚠️] Decoded logs did NOT contain expected transfers`);
     console.warn(`→ PSP match: ${pspTransferFound}`);
@@ -160,7 +259,7 @@ export async function settleSmartWalletPayment({
   }
 
   return {
-    txHash: receipt.receipt.transactionHash,
+    txHash: txHash,
     pspAmount: split.psp,
     treasuryAmount: split.treasury,
   };

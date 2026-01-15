@@ -3,6 +3,23 @@ import { SUPPORTED_CHAINS } from "./chains.ts";
 import type { Chain } from "./types.ts";
 import { JsonRpcProvider } from "ethers";
 
+
+export type NexusAccount = {
+  address: string | `0x${string}`;
+  smartClient?: { sendTransaction: Function };
+};
+
+export type UserOpCall = {
+  to: `0x${string}`;
+  data: `0x${string}`;
+  value?: bigint;
+};
+
+export type NexusClient = {
+  sendUserOperation: any;
+  waitForUserOperationReceipt: any;
+};
+
 export async function getTokenBalance(wallet: string, token: string, chain: Chain): Promise<bigint> {
   const { chainId, nativeToken, rpcUrl } = SUPPORTED_CHAINS[chain];
   const client = createPublicClient({
@@ -18,7 +35,7 @@ export async function getTokenBalance(wallet: string, token: string, chain: Chai
   });
 }
 
-const CONFIRMATIONS: Record<Chain, number> = { base: 4, polygon: 8, arbitrum:3, ethereum: 5 };
+const CONFIRMATIONS: Record<Chain, number> = { base: 4, arbitrum:3, ethereum: 5, mantleSepolia: 3 };
 
 export type BaseError = {
   message: string;

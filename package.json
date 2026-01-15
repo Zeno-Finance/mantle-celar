@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev:listener": "node --loader ts-node/esm src/routingEngineModule/paymentReceiver.ts",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "dev:conc": "concurrently \"npm run dev\" \"npm run dev:listener\""
   },
   "keywords": [],
   "author": "",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+     "concurrently": "^9.2.1",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
