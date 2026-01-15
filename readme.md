@@ -1,33 +1,35 @@
-# Celar — Multichain Payment Orchestration (MNEE Hackathon)
+# Celar — Multichain Payment Orchestration
 
-Celar is a **multichain payment orchestration backend** that allows platforms and PSPs to accept stablecoin payments, automatically route them across chains, and track payment state changes in real time.
+*MNEE Hackathon Submission*
 
-This submission demonstrates how **MNEE** can be used as a **payment currency** in a real pay-in flow, alongside USDC and USDT, using the same routing, monitoring, and settlement logic.
+Celar is a **multichain payment orchestration backend** designed for platforms and Developers to accept stablecoin payments, route them across chains, and track payment state changes in real time.
+
+This submission demonstrates MNEE in a real pay-in flow, operating alongside USDC and USDT using the same routing, monitoring, and settlement infrastructure.
 
 ## What This Project Does
 
-Celar provides:
+Celar provides the following core capabilities:
 
-* A **PSP onboarding API**
-* A **Merchant management API**
-* A **Pay-in API** to initiate stablecoin payments
+* **PSP onboarding API**
+* **Merchant management API**
+* **Pay-in API** for stablecoin payments
 * **Automatic route selection** across supported chains (`chain = best`)
 * **Deterministic intermediary wallet generation** per payment
-* A **listener service** that monitors on-chain transfers
+* **On-chain listener service** for transfer detection
 * **Webhook events** for payment lifecycle updates
-* **Strict currency validation**, including controlled usage of **MNEE**
+
 
 ## How MNEE Is Used
 
 In this project:
 
-* MNEE can be selected as the `currency` when initiating a pay-in
-* The system:
+* **MNEE** can be selected as the `currency` when initiating a pay-in.
+* The platform then:
 
   * resolves the correct MNEE token contract
   * generates a unique intermediary wallet for the payment
-  * waits for an on-chain MNEE transfer
-  * updates the payment state once funds are received
+  * monitors the chain for an incoming MNEE transfer
+  * updates payment state once funds are received and confirmed
 
 ## Supported Chains & Tokens
 
@@ -39,28 +41,33 @@ In this project:
 | Arbitrum | USDC, USDT       |
 | Testnets | USDC, USDT       |
 
-Availability depends on environment configuration.
+> Availability depends on environment configuration and network setup.
 
 ## Project Architecture
 
-The project runs as **two services**:
+Celar runs as **two cooperating services**, both required for end-to-end operation.
 
 ### API Service
 
-* Registers PSPs
-* Manages merchants
-* Initiates pay-ins
-* Resolves routing and token addresses
-* Generates intermediary wallets
-* Emits webhook events
+Responsible for:
+
+* PSP registration
+* Merchant management
+* Pay-in initiation
+* Chain and token resolution
+* Intermediary wallet generation
+* Webhook emission
 
 ### Listener Service
 
-* Watches supported blockchains for token transfers
-* Confirms incoming payments
-* Updates payment status
+Responsible for:
 
- Both services **must be running** for the full flow to work.
+* Monitoring supported blockchains
+* Detecting incoming token transfers
+* Confirming payments
+* Updating payment state
+
+> Both services **must be running** for the full payment flow to function correctly.
 
 
 ## Setup Instructions
@@ -73,16 +80,20 @@ npm install
 
 ### 2. Configure Environment
 
-Create your environment file:
+Create an environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in all required variables (RPC URLs, token addresses, webhook secrets, etc.).
+Populate all required variables, including:
 
+* RPC URLs
+* Token contract addresses
+* Webhook secrets
+* Chain configuration values
 
-### 3. Start the Application
+### 3. Start the Services
 
 Run the API service:
 
@@ -90,96 +101,54 @@ Run the API service:
 npm run dev
 ```
 
-Run the listener service in a second terminal:
+Run the listener service in a separate terminal:
 
 ```bash
 npm run dev:listener
 ```
 
-## How to Test the Full Flow
 
-### Step 1: Create a PSP
+## How to Test the Full Pay-In Flow
 
-```bash
-curl -X POST http://localhost:3000/api/v1/psps/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "business_name": "Acme Payments Ltd",
-    "contact_email": "ops@acmepayments.com",
-    "registered_country": "KEN",
-    "business_type": "llc",
-    "primary_use_case": "payments",
-    "expected_monthly_volume": "500000-1000000",
-    "source_of_funds": "other",
-    "license_number": "CBK-PSP-2024-001",
-    "website": "https://acmepayments.com"
-  }'
-```
+1. Create an account on the dashboard:
+   **[https://dashboard.celar.io](https://dashboard.celar.io)**
 
-The response returns an **API key** (shown only once).
+2. Select the **PSP onboarding flow** during KYC.
+   (For the hackathon environment, approval is automatic.)
 
+3. Create a **customer** and copy the `customer_id`.
 
-### Step 2: Create Merchants
+4. Create an **internal Celar wallet** for receiving a pay-in.
 
-```bash
-curl -X POST http://localhost:3000/api/v1/merchants/sync \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <PSP_API_KEY>" \
-  -d '{
-    "merchants": [
-      {
-        "external_id": "mch_001",
-        "name": "Nairobi Electronics",
-        "email": "finance@nairobielectronics.co.ke",
-        "business_id": "KE-BIZ-001"
-      }
-    ]
-  }'
-```
+5. Generate an **API key** and configure a **webhook URL** in settings.
 
-The response returns a `merchant_id` such as:
+6. Initiate a pay-in using the API:
+   **[https://docs.celar.io/api#/operations/create_payin](https://docs.celar.io/api#/operations/create_payin)**
 
-```
-mcht_77aba29815f8f0c3
-```
-
-
-### Step 3: Initiate a Pay-in (MNEE Example)
-
-```bash
-curl -X POST http://localhost:3000/api/v1/payments/initiate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <PSP_API_KEY>" \
-  -d '{
-    "merchant_id": "mcht_77aba29815f8f0c3",
-    "amount": "120.00",
-    "currency": "MNEE",
-    "chain": "ethereum",
-    "reference": "ORDER-7781",
-    "description": "Settlement for order 7781",
-    "metadata": {
-      "order_id": "ORDER-7781",
-      "customer_email": "buyer@example.com"
-    }
-  }'
-```
-
-
-### What Happens Next
-
-1. The API:
-
-   * resolves the chain and token address
-   * generates an intermediary wallet
-   * stores routing metadata
-2. The response includes:
+7. The response returns:
 
    * `payment_id`
    * `intermediary_wallet`
    * `token_address`
-3. Send the specified token (including **MNEE**) to the intermediary wallet.
-4. The listener detects the transfer and confirms the payment.
-5. Webhooks (if configured) emit lifecycle events.
+
+8. Send the specified MNEE token to the intermediary wallet.
+
+9. Wait for confirmation. Once processed, the payment state updates automatically.
+
+
+## What Happens Internally
+
+1. The API:
+
+   * resolves chain and token metadata
+   * generates a deterministic intermediary wallet
+   * stores routing context
+2. The listener:
+
+   * detects the on-chain transfer
+   * validates amount and currency
+   * confirms the payment
+3. Webhooks (if configured) emit lifecycle events in real time.
 
 
 ## Webhooks
@@ -191,26 +160,24 @@ If a webhook URL is configured for the PSP, Celar emits events such as:
 * `payin.failed`
 * `payin.mismatched`
 
-These allow downstream systems to react in real time.
+These allow downstream systems to react programmatically to payment state changes.
 
 
 ## Documentation
 
 Full API documentation is available at:
 
- **[https://docs.celar.io/](https://docs.celar.io/)**
+**[https://docs.celar.io/](https://docs.celar.io/)**
 
+## Hackathon Requirements
 
-## Hackathon Functionality Requirements
+This submission:
 
-This project:
-
-* installs successfully using the provided instructions
-* runs consistently on the intended platform
+* installs using the provided instructions
+* runs reliably in the intended environment
 * functions as described in this README
-* demonstrates **practical usage of MNEE in a real payment flow**
+* demonstrates **practical MNEE usage in a real payment flow**
 * matches the behavior shown in the demo video
-
 
 ## License
 
